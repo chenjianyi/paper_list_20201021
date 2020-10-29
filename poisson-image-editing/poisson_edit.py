@@ -40,8 +40,9 @@ class PoissonImageEdit():
         return A
 
     def laplacian_at_index(self, source, index):
-        h, w, c = source.shape
+        h, w = source.shape[0], source.shape[1]
         i, j = index
+        """
         value = 0
         if i + 1 < w:
             value += source[i, j] - source[i+1, j]
@@ -51,7 +52,8 @@ class PoissonImageEdit():
             value += source[i, j] - source[i, j+1]
         if j - 1 >= 0:
             value += source[i, j] - source[i, j-1]
-        #value = 4 * source[i, j] - source[i+1, j] - source[i-1, j] - source[i, j+1] - source[i, j-1]
+        """
+        value = 4 * source[i, j] - source[i+1, j] - source[i-1, j] - source[i, j+1] - source[i, j-1]
         return value
 
     def in_omega(self, index, mask):
@@ -66,30 +68,31 @@ class PoissonImageEdit():
         return False
 
     def point_location(self, index, mask):
-        if self.in_omega(index, mask):
-            return 0  # inside
+        if self.in_omega(index, mask) == False:
+            return 2  # outside
         if self.edge(index, mask) == True:
             return 1  # edge
         else:
-            return 2  # outside
+            return 0  # outside
 
     def process(self, source, target, mask):
         indicies = self.mask_indices(mask)
         N = len(indicies)
         A = self.poisson_sparse_matrix(indicies)
-        b = np.zeros((N, 3))
+        #b = np.zeros((N, 3))
+        b = np.zeros(N)
         for i, index in enumerate(indicies):
             #print(index, source.shape)
             b[i] = self.laplacian_at_index(source, index)
             if self.point_location(index, mask) == 1:
-                for pt in self.get_surroending(index):
+                for pt in self.get_surrounding(index):
                     if self.in_omega(pt, mask) == False:
                         b[i] += target[pt]
 
-        print(A.shape, b.shape)
-        x = linalg.spsolve(A, b)
-        print(x.shape)
+        #x = linalg.spsolve(A, b)
+        x = linalg.cg(A, b)
         composite = np.copy(target).astype(int)
         for i, index in enumerate(indicies):
-            composite[index] = x[i]
+            #composite[index] = x[i]
+            composite[index] = x[0][i]
         return composite
